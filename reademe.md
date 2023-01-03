@@ -50,6 +50,10 @@ use src/words.rs and src/simple.rs as a guide, as well as the youtube video.
 - You must use this command to allow printing: `cargo test -- --nocapture`
 - could use some help here, but test_simple contains a benchmark for now using std::time::Instant;
 - It will print `Elapsed for 80 words: 625.51ms`
+- try "cargo install flamegraph" and "cargo flamegraph" (https://github.com/flamegraph-rs/flamegraph for help)
 
 ### Pull Requests:
 - are most welcome :)
+
+### Flamegraph iterations:
+1) flamegraph1.svg: evaluate_guess is slow due to allocating vector. Lets try use partition  

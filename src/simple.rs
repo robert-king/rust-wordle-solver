@@ -1,7 +1,4 @@
 use std::collections::HashMap;
-use std::time::Duration;
-use crate::words;
-
 
 pub fn evaluate_guess(guess: &str, words: &Vec<&'static str>, cache: &mut HashMap<Vec<&'static str>, f64>) -> f64 {
     let mut total = 0f64;
@@ -68,33 +65,40 @@ fn is_valid(w: &str, guess: &str, ans: &str) -> bool {
     true
 }
 
-#[test]
-fn test_simple() {
-    let guess = "trace";
-    let words = words::get_words(10, false);
-    let mut cache = HashMap::new();
-    let avg = evaluate_guess(guess, &words, &mut cache);
-    assert_eq!(avg, 2.0);
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use crate::{simple, words};
 
-    let words = words::get_words(100, false);
-    let mut cache = HashMap::new();
-    let avg = evaluate_guess(guess, &words, &mut cache);
-    assert_eq!(avg, 2.660000000000001);
-
-    // benchmark simple
-    use std::time::Instant;
-    let now = Instant::now();
-
-    // Code block to measure.
-    {
-        let words = words::get_words(80, false);
+    #[test]
+    fn test_simple() {
+        let guess = "trace";
+        let words = words::get_words(10, false);
         let mut cache = HashMap::new();
-        for &guess in &words {
-            let _avg = evaluate_guess(guess, &words, &mut cache);
-        }
-    }
+        let avg = simple::evaluate_guess(guess, &words, &mut cache);
+        assert_eq!(avg, 2.0);
 
-    let elapsed = now.elapsed();
-    assert!(elapsed < Duration::new(3, 0));
-    println!("Elapsed for 80 words: {:.2?}", elapsed);
+        let words = words::get_words(100, false);
+        let mut cache = HashMap::new();
+        let avg = simple::evaluate_guess(guess, &words, &mut cache);
+        assert_eq!(avg, 2.660000000000001);
+
+        // benchmark simple
+        use std::time::Instant;
+        let now = Instant::now();
+
+        // Code block to measure.
+        {
+            let words = words::get_words(80, false);
+            let mut cache = HashMap::new();
+            for &guess in &words {
+                let _avg = simple::evaluate_guess(guess, &words, &mut cache);
+            }
+        }
+
+        let elapsed = now.elapsed();
+        assert!(elapsed < Duration::new(3, 0));
+        println!("Elapsed for 80 words: {:.2?}", elapsed);
+    }
 }
