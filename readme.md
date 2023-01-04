@@ -27,6 +27,7 @@
 6) Think of some ways to improve performance
 7) Improve accuracy by allowing duplicate characters and by allowing guesses from a larger list of words
 8) Optimise performance further using [Flame Graph](https://github.com/flamegraph-rs/flamegraph)
+9) when Optimising, create a struct called FastSolver that houses the cache and other structures used for optimisation, create a new file called fast.rs
 
 #### Hints:
 use src/words.rs and src/simple.rs as a guide, as well as the youtube video.
