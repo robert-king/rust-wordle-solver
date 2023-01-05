@@ -57,4 +57,10 @@ use src/words.rs and src/simple.rs as a guide, as well as the youtube video.
 - are most welcome :)
 
 ### Flamegraph iterations:
-1) flamegraph1.svg: evaluate_guess is slow due to allocating vector. Lets try use partition  
+1) flamegraph1.svg: no optimisations
+2) flamegraph2.svg: reduce allocations by using a buffer pool and using u64 instead of vec<str> as hash key for memoization.
+3) flamegraph3.svg: precompute is_valid for all triples.
+4) flamegraph4.svg: run flamegraph in dev mode
+5) flamegraph5.svg: add rayon and anneal
+6) flamegraph6.svg: make is_valid 5x faster (we could still make get_valid_cache() another 5x faster, e.g. by divide an concor to words that have 'a' and words that don't, and so on)
+7) use rayon to make get_valid_cache() faster

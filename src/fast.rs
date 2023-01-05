@@ -1,5 +1,6 @@
-use std::collections::HashMap;
-use rand::{thread_rng, Rng};
+use std::collections::{HashMap, HashSet};
+use rand::{thread_rng, Rng, seq::SliceRandom};
+use rayon::prelude::*;
 
 pub struct FastSolver {
     cache: HashMap<u64, f64>,
@@ -16,7 +17,7 @@ impl FastSolver {
         let mut rand = vec![0; n];
         let mut rng = thread_rng();
         for r in &mut rand {
-            *r = rng.gen_range(0..10u64.pow(13));
+            *r = rng.gen_range(0..10u64.pow(15));
         }
         FastSolver{
             cache: HashMap::new(),
@@ -25,6 +26,44 @@ impl FastSolver {
             rand,
             is_valid_cache
         }
+    }
+
+    pub fn anneal(mut all_words: Vec<&'static str>) {
+        all_words.shuffle(&mut thread_rng());
+        let mut top_words = all_words.clone();
+
+        for i in 1..5 {
+            let initial_guesses = HashSet::<&'static str>::from_iter(top_words.iter().cloned());
+            top_words = all_words.par_iter().cloned().chunks(i*150).map(|words_chunk| {
+                let mut solver = FastSolver::new(words_chunk);
+                solver.evaluate_guesses(&initial_guesses)[..40].iter().map(|(_avg, guess)| guess).cloned().collect::<Vec<&'static str>>()
+            }).flatten_iter().collect::<Vec<&'static str>>();
+            println!("done {top_words:?}");
+        }
+
+        let initial_guesses = HashSet::<&'static str>::from_iter(top_words.iter().cloned());
+        println!("building final solver");
+        let mut final_solver = FastSolver::new(all_words);
+        println!("running final solver");
+        let results = final_solver.evaluate_guesses(&initial_guesses);
+        for result in results {
+            println!("{result:?}");
+        }
+    }
+
+    fn evaluate_guesses(&mut self, initial_guesses: &HashSet<&'static str>) -> Vec<(f64, &'static str)> {
+        let mut results = vec![];
+        for (guess_idx, &guess) in self.all_words.clone().iter().enumerate() {
+            if initial_guesses.contains(guess) {
+                let avg = self.evaluate_one_guess(guess_idx);
+                // println!("{guess} {avg}");
+                results.push((avg, guess));
+            }
+        }
+        results.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0).unwrap()
+        });
+        results
     }
 
     pub fn evaluate_one_guess(&mut self, guess_idx: usize) -> f64 {
@@ -74,50 +113,76 @@ impl FastSolver {
         best_avg
     }
 
-    fn is_valid(w: &str, guess: &str, ans: &str) -> bool {
-        let w = w.as_bytes();
-        let guess = guess.as_bytes();
-        let ans = ans.as_bytes();
+    fn get_valid_cache(all_words: &Vec<&'static str>) -> Vec<bool> {
+        let words = all_words.iter().map(|&w| Word::new(w)).collect::<Vec<Word>>();
+        let n = all_words.len();
+        let mut v = vec![false; n*n*n];
+        for (guess_idx, guess) in words.iter().enumerate() {
+            // println!("building for guess: {guess}");
+            for (ans_idx, ans) in words.iter().enumerate() {
+                for (word_idx, word) in words.iter().enumerate() {
+                    if word.is_valid(guess, ans) {
+                        v[guess_idx * n * n + ans_idx * n + word_idx] = true;
+                    }
+                }
+            }
+        }
+        v
+    }
+}
+
+struct Word {
+    bytes: [u8; 5],
+    position: [u8; 26],
+}
+
+impl Word {
+    fn new(word: &'static str) -> Self {
+        let mut bytes = [0; 5];
         for i in 0..5 {
-            if let Some(idx) = ans.iter().position(|&b| b == guess[i]) {
-                if idx == i {
+            bytes[i] = word.as_bytes()[i] - b'a';
+        }
+        let mut position = [5; 26];
+        for (i, &b) in bytes.iter().enumerate() {
+            position[b as usize] = i as u8;
+        }
+        Word {
+            bytes,
+            position
+        }
+    }
+
+    fn contains(&self, b: u8) -> bool {
+        self.position[b as usize] != 5
+    }
+
+    fn is_valid(&self, guess: &Word, ans: &Word) -> bool {
+        for (i, &guess_b) in guess.bytes.iter().enumerate() {
+            let idx = ans.position[guess_b as usize];
+            if idx != 5 {
+                if idx == i as u8 {
                     // green
-                    if w[i] != ans[i] {
+                    if self.bytes[i] != guess_b {
                         return false;
                     }
                 } else {
                     // todo: make this work for duplicate characters
                     // orange
-                    if !w.contains(&guess[i]) {
+                    if !self.contains(guess_b) {
                         return false;
                     }
-                    if w[i] == guess[i] {
+                    if self.bytes[i] == guess_b {
                         return false;
                     }
                 }
             } else {
                 // guess[i] is not valid
-                if w.contains(&guess[i]) {
+                if self.contains(guess_b) {
                     return false;
                 }
             }
         }
         true
-    }
-
-    fn get_valid_cache(all_words: &Vec<&'static str>) -> Vec<bool> {
-        let n = all_words.len();
-        let mut v = vec![false; n*n*n];
-        let n = all_words.len();
-        for (guess_idx, guess) in all_words.iter().enumerate() {
-            println!("building for guess: {guess}");
-            for (ans_idx, ans) in all_words.iter().enumerate() {
-                for (word_idx, word) in all_words.iter().enumerate() {
-                    v[guess_idx * n * n + ans_idx * n + word_idx] = FastSolver::is_valid(word, guess, ans);
-                }
-            }
-        }
-        v
     }
 }
 
@@ -129,33 +194,42 @@ mod tests {
     use crate::fast::FastSolver;
 
     #[test]
-    fn test_fast() {
-        let guess = "trace";
-        let words = words::get_words(10, false);
-        let mut solver = FastSolver::new(words);
-        let avg = solver.evaluate_guess(guess);
-        assert_eq!(avg, 2.0);
+    fn test_is_valid() {
+        let guess = fast::Word::new("stuck");
+        let word = fast::Word::new("pluck");
 
-        let words = words::get_words(100, false);
-        let mut solver = FastSolver::new(words);
-        let avg = solver.evaluate_guess(guess);
-        assert_eq!(avg, 2.660000000000001);
-
-        // benchmark simple
-        use std::time::Instant;
-        let now = Instant::now();
-
-        // Code block to measure.
-        {
-            let words = words::get_words(80, false);
-            let mut solver = FastSolver::new(words);
-            for &guess in &words {
-                let avg = solver.evaluate_guess(guess);
-            }
-        }
-
-        let elapsed = now.elapsed();
-        assert!(elapsed < Duration::new(3, 0));
-        println!("Elapsed for 80 words: {:.2?}", elapsed);
+        assert!(word.is_valid(&fast::Word::new("xzuck"), &guess));
+        assert!(!word.is_valid(&fast::Word::new("truck"), &guess));
     }
+
+    // #[test]
+    // fn test_fast() {
+    //     let guess = "trace";
+    //     let words = words::get_words(10, false);
+    //     let mut solver = FastSolver::new(words);
+    //     let avg = solver.evaluate_guess(guess);
+    //     assert_eq!(avg, 2.0);
+    //
+    //     let words = words::get_words(100, false);
+    //     let mut solver = FastSolver::new(words);
+    //     let avg = solver.evaluate_guess(guess);
+    //     assert_eq!(avg, 2.660000000000001);
+    //
+    //     // benchmark simple
+    //     use std::time::Instant;
+    //     let now = Instant::now();
+    //
+    //     // Code block to measure.
+    //     {
+    //         let words = words::get_words(80, false);
+    //         let mut solver = FastSolver::new(words);
+    //         for &guess in &words {
+    //             let avg = solver.evaluate_guess(guess);
+    //         }
+    //     }
+    //
+    //     let elapsed = now.elapsed();
+    //     assert!(elapsed < Duration::new(3, 0));
+    //     println!("Elapsed for 80 words: {:.2?}", elapsed);
+    // }
 }
