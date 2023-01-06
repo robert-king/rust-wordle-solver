@@ -31,14 +31,15 @@ impl FastSolver {
     pub fn anneal(mut all_words: Vec<&'static str>) {
         all_words.shuffle(&mut thread_rng());
         let mut top_words = all_words.clone();
-
-        for i in 1..5 {
+        let n = all_words.len();
+        let chunk_sizes = vec![n/10, n/5, n/2];
+        for chunk_size in chunk_sizes {
             let initial_guesses = HashSet::<&'static str>::from_iter(top_words.iter().cloned());
-            top_words = all_words.par_iter().cloned().chunks(i*150).map(|words_chunk| {
+            top_words = all_words.par_iter().cloned().chunks(chunk_size).map(|words_chunk| {
                 let mut solver = FastSolver::new(words_chunk);
-                solver.evaluate_guesses(&initial_guesses)[..40].iter().map(|(_avg, guess)| guess).cloned().collect::<Vec<&'static str>>()
+                solver.evaluate_guesses(&initial_guesses).iter().take(30).map(|(_avg, guess)| guess).cloned().collect::<Vec<&'static str>>()
             }).flatten_iter().collect::<Vec<&'static str>>();
-            println!("done {top_words:?}");
+            println!("done {}", top_words.len());
         }
 
         let initial_guesses = HashSet::<&'static str>::from_iter(top_words.iter().cloned());
@@ -46,7 +47,7 @@ impl FastSolver {
         let mut final_solver = FastSolver::new(all_words);
         println!("running final solver");
         let results = final_solver.evaluate_guesses(&initial_guesses);
-        for result in results {
+        for result in results.iter().take(5) {
             println!("{result:?}");
         }
     }
@@ -117,16 +118,17 @@ impl FastSolver {
         let words = all_words.iter().map(|&w| Word::new(w)).collect::<Vec<Word>>();
         let n = all_words.len();
         let mut v = vec![false; n*n*n];
-        for (guess_idx, guess) in words.iter().enumerate() {
-            // println!("building for guess: {guess}");
-            for (ans_idx, ans) in words.iter().enumerate() {
-                for (word_idx, word) in words.iter().enumerate() {
-                    if word.is_valid(guess, ans) {
-                        v[guess_idx * n * n + ans_idx * n + word_idx] = true;
-                    }
+        v.par_iter_mut().chunks(n).enumerate().for_each(|(chunk_idx, chunk)| {
+            let guess_idx = chunk_idx / n;
+            let guess = &words[guess_idx];
+            let ans_idx = chunk_idx % n;
+            let ans = &words[ans_idx];
+            for (is_valid, word) in chunk.into_iter().zip(&words) {
+                if word.is_valid(guess, ans) {
+                    *is_valid = true;
                 }
             }
-        }
+        });
         v
     }
 }

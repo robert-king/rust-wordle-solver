@@ -26,5 +26,5 @@ fn run_fast(n: usize) {
 
 fn main() {
     // run_simple(10);
-    run_fast(2000);
+    run_fast(10_000);
 }

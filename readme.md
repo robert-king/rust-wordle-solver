@@ -63,4 +63,23 @@ use src/words.rs and src/simple.rs as a guide, as well as the youtube video.
 4) flamegraph4.svg: run flamegraph in dev mode
 5) flamegraph5.svg: add rayon and anneal
 6) flamegraph6.svg: make is_valid 5x faster (we could still make get_valid_cache() another 5x faster, e.g. by divide an concor to words that have 'a' and words that don't, and so on)
-7) use rayon to make get_valid_cache() faster
+7) flamegraph7.svg: use rayon to make get_valid_cache() faster, tidy aneal code
+
+### Results:
+
+If we disregard uncommon words (since you're unlikely to use those), and if we filter out words with duplicate characters (just to simplify the is_valid logic slightly), then we get the following:
+
+runtime, 8 seconds:
+(3.5140485312899146, "tripe")
+(3.517241379310358, "trace")
+(3.5185185185185435, "crate")
+(3.5217113665389674, "slant")
+(3.526181353767567, "leant")
+
+note that without filtering out uncommon words, and by allowing duplicate characters, it would take longer to run, the following is the result should be expected in that case:
+SALET 3.42117
+REAST 3.42246
+TRACE 3.42376
+CRATE 3.42376
+SLATE 3.42462
+see https://auction-upload-files.s3.amazonaws.com/Wordle_Paper_Final.pdf for details
