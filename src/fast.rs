@@ -2,6 +2,11 @@ use std::collections::{HashMap, HashSet};
 use rand::{thread_rng, Rng, seq::SliceRandom};
 use rayon::prelude::*;
 
+pub fn run_fast(n: usize) {
+    let words = crate::words::get_words(n, false);
+    FastSolver::anneal(words);
+}
+
 pub struct FastSolver {
     cache: HashMap<u64, f64>,
     all_words: Vec<&'static str>,
@@ -82,12 +87,12 @@ impl FastSolver {
             total += 1.0;
             if ans_idx != guess_idx {
                 new_idxs.clear();
-                new_idxs.extend(idxs
-                    .iter()
-                    .cloned()
-                    .filter(|&word_idx| {
-                        self.is_valid_cache[guess_idx * n * n + ans_idx * n + word_idx]
-                    }));
+                new_idxs.extend(
+                    idxs.iter()
+                        .filter(|&word_idx| {
+                            self.is_valid_cache[guess_idx * n * n + ans_idx * n + word_idx]
+                        })
+                );
                 total += match new_idxs.len() {
                     1 => 1.0,
                     2 => 2.5,
@@ -118,6 +123,7 @@ impl FastSolver {
         let words = all_words.iter().map(|&w| Word::new(w)).collect::<Vec<Word>>();
         let n = all_words.len();
         let mut v = vec![false; n*n*n];
+        // todo: we could make this faster by computing matchable patterns first for each word, and then only looking at relevant words.
         v.par_iter_mut().chunks(n).enumerate().for_each(|(chunk_idx, chunk)| {
             let guess_idx = chunk_idx / n;
             let guess = &words[guess_idx];

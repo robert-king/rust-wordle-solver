@@ -1,5 +1,23 @@
 use std::collections::HashMap;
 
+pub fn run_simple(n: usize) {
+    let words = crate::words::get_words(n, false);
+    let mut results = vec![];
+    let mut cache = HashMap::new();
+    for &guess in &words {
+        let avg = evaluate_guess(guess, &words, &mut cache);
+        println!("{guess} {avg}");
+        results.push((avg, guess));
+    }
+    results.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0).unwrap()
+    });
+    for i in 0..10 {
+        println!("simple: {:?}", results[i]);
+    }
+}
+
+
 pub fn evaluate_guess(guess: &str, words: &Vec<&'static str>, cache: &mut HashMap<Vec<&'static str>, f64>) -> f64 {
     let mut total = 0f64;
     for &ans in words {
